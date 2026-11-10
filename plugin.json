@@ -1,0 +1,13 @@
+{
+    "$schema": "https://www.flowlauncher.com/schemas/plugin.schema.json",
+    "ID": "b7f3c1d49a2e4c6f8d150e9a6c3b72f1",
+    "ActionKeyword": "hue",
+    "Name": "Hue",
+    "Description": "Control Philips Hue lights and scenes",
+    "Author": "alexskc",
+    "Version": "1.0.0",
+    "Language": "python",
+    "Website": "https://github.com/",
+    "IcoPath": "Images/hue.png",
+    "ExecuteFileName": "main.py"
+}

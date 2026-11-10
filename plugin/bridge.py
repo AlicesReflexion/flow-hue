@@ -141,15 +141,23 @@ def request_key(ip):
 
 def fetch(ip, key):
     """Lights and scenes, reduced to what the plugin needs."""
+    # The names set in the Hue app live on the device; a light's own metadata.name
+    # keeps the factory default ("Hue color lamp 1"), so prefer the device's.
+    device_names = {
+        item["id"]: (item.get("metadata") or {}).get("name")
+        for item in _bridge(ip, "GET", "/clip/v2/resource/device", key=key).get("data", [])
+    }
     lights = []
     for item in _bridge(ip, "GET", "/clip/v2/resource/light", key=key).get("data", []):
+        owner = (item.get("owner") or {}).get("rid")
         color = item.get("color")
         ct = item.get("color_temperature")
         gamut = (color or {}).get("gamut")
         schema = (ct or {}).get("mirek_schema") or {}
         lights.append({
             "id": item["id"],
-            "name": (item.get("metadata") or {}).get("name", "Light"),
+            "name": device_names.get(owner)
+                    or (item.get("metadata") or {}).get("name", "Light"),
             "color": color is not None,
             "gamut": [[gamut[c]["x"], gamut[c]["y"]] for c in ("red", "green", "blue")]
                      if gamut else None,

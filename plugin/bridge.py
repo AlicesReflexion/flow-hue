@@ -126,7 +126,7 @@ def discover():
 
 def request_key(ip):
     """Ask for an application key. None until the link button has been pressed."""
-    body = {"devicetype": "flow_hue#%s" % socket.gethostname()[:19], "generatekey": True}
+    body = {"devicetype": "flow_hue#%s" % socket.gethostname()[:19]}
     reply = _bridge(ip, "POST", "/api", body)
     entry = reply[0] if isinstance(reply, list) and reply else {}
     if "success" in entry:

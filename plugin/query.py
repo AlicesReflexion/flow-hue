@@ -100,29 +100,48 @@ def _dimmable(light):
     return light.get("dim", light.get("color") or light.get("ct"))
 
 
-def _brightness(light, needle):
-    """Results for a typed percentage, or None if the text isn't a number."""
-    match = re.fullmatch(r"(\d{1,3})\s*%?", needle)
-    if not match:
-        return None
+_PERCENT = r"(\d{1,3})\s*%?"
+
+
+def _split_percent(needle):
+    """'coral 30', '30 coral' or '30' -> (colour text, percent); percent is None if absent."""
+    for pattern, colour, percent in (
+        (_PERCENT, None, 1),
+        (r"(.+?)\s+" + _PERCENT, 1, 2),
+        (_PERCENT + r"\s+(.+)", 2, 1),
+    ):
+        match = re.fullmatch(pattern, needle)
+        if match:
+            return (match.group(colour) if colour else ""), int(match.group(percent))
+    return needle, None
+
+
+def _percent_problem(light, percent, with_colour):
+    """A result explaining why this brightness can't be used, or None if it can."""
     name = light["name"]
     if not _dimmable(light):
-        return [_result("%s can't be dimmed" % name, "It can only be turned on or off",
-                        ICON, 0, "light %s " % name)]
-    percent = int(match.group(1))
-    if percent > 100:
-        return [_result("Brightness goes up to 100%", "Type a number from 0 to 100",
-                        ICON, 0, "light %s " % name)]
+        title, subtitle = "%s can't be dimmed" % name, "It can only be turned on or off"
+    elif percent > 100:
+        title, subtitle = "Brightness goes up to 100%", "Type a number from 0 to 100"
+    elif percent == 0 and with_colour:
+        title, subtitle = "0%% would turn %s off" % name, "Use 1 to 100 with a colour, or type off"
+    else:
+        return None
+    return _result(title, subtitle, ICON, 0, "light %s " % name)
+
+
+def _brightness_only(light, percent):
+    name = light["name"]
     if percent == 0:
         body, subtitle = {"on": {"on": False}}, "Turn %s off" % name
     else:
         body = {"on": {"on": True}, "dimming": {"brightness": percent}}
         subtitle = "Set %s to %d%% brightness" % (name, percent)
-    return [_result(
+    return _result(
         "%d%%" % percent, subtitle, "Images/light.png", 10000,
         "light %s %d" % (name, percent),
         {"method": "light", "parameters": [light["id"], json.dumps(body), subtitle]},
-    )]
+    )
 
 
 def _light_rows(needle, lights, penalty=0):
@@ -148,18 +167,34 @@ def _lights(rest, cache):
         return _light_rows(rest, lights) or [_empty("light", rest)]
 
     needle = rest[len(_norm(chosen["name"])):].strip()
-    brightness = _brightness(chosen, needle)
-    if brightness is not None:
-        return brightness
+    colour, percent = _split_percent(needle)
+    if percent is not None:
+        problem = _percent_problem(chosen, percent, bool(colour))
+        if problem:
+            return [problem]
+        if not colour:
+            return [_brightness_only(chosen, percent)]
+    name_ = chosen["name"]
     out = []
-    for score, (name, icon, body) in _ranked(needle, colors.options(chosen), lambda o: o[0]):
-        if name in ("on", "off"):
-            subtitle = "Turn %s %s" % (chosen["name"], name)
+    for score, (name, icon, body) in _ranked(colour, colors.options(chosen), lambda o: o[0]):
+        if percent is None:
+            title, complete = name, "light %s %s" % (name_, name)
+            if name in ("on", "off"):
+                subtitle = "Turn %s %s" % (name_, name)
+            else:
+                subtitle = "Set %s to %s" % (name_, name)
         else:
-            subtitle = "Set %s to %s" % (chosen["name"], name)
+            if name == "off":
+                continue
+            body = dict(body, on={"on": True}, dimming={"brightness": percent})
+            title = "%s %d%%" % (name, percent)
+            complete = "light %s %s %d" % (name_, name, percent)
+            if name == "on":
+                subtitle = "Turn %s on at %d%% brightness" % (name_, percent)
+            else:
+                subtitle = "Set %s to %s at %d%% brightness" % (name_, name, percent)
         out.append(_result(
-            name, subtitle, "Images/%s.png" % icon, score,
-            "light %s %s" % (chosen["name"], name),
+            title, subtitle, "Images/%s.png" % icon, score, complete,
             {"method": "light", "parameters": [chosen["id"], json.dumps(body), subtitle]},
         ))
     if not needle:
@@ -167,7 +202,7 @@ def _lights(rest, cache):
         others = [l for l in lights if l is not chosen]
         out += _light_rows(rest, others, penalty=20000)
     return out or [_result(
-        "No colour called '%s'" % needle, "Try red, warm white, off, or a brightness like 70",
+        "No colour called '%s'" % colour, "Try red, warm white, off, or a brightness like 70",
         ICON, 0, "light %s " % chosen["name"])]
 
 

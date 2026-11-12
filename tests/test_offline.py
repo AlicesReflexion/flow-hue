@@ -96,7 +96,28 @@ assert "JsonRPCAction" in first("light floor lamp 150")  # completes, doesn't se
 assert first("light lamp 2 50")["Title"] == "Lamp 2 can't be dimmed"
 # caches written before "dim" existed still dim colour/white bulbs
 legacy = dict(LIGHTS[0]); legacy.pop("dim")
-assert query._brightness(legacy, "40")[0]["Title"] == "40%"
+assert query._percent_problem(legacy, 40, False) is None
+
+# --- colour and brightness together, either order
+def params(text):
+    return json.loads(first(text)["JsonRPCAction"]["parameters"][1])
+
+r = first("light floor lamp coral 30")
+assert r["Title"] == "coral 30%" and r["AutoCompleteText"] == "hue light Floor lamp coral 30"
+assert r["SubTitle"] == "Set Floor lamp to coral at 30% brightness"
+assert params("light floor lamp coral 30")["dimming"] == {"brightness": 30}
+assert params("light floor lamp coral 30")["color"] == params("light floor lamp coral")["color"]
+assert params("light floor lamp 90 yellow") == dict(params("light floor lamp yellow"), dimming={"brightness": 90})
+assert titles("light floor lamp 90 yel") == ["yellow 90%"]
+assert params("light floor lamp warm white 40%") == {
+    "on": {"on": True}, "color_temperature": {"mirek": 370}, "dimming": {"brightness": 40}}
+assert params("light floor lamp 40 warm white")["dimming"] == {"brightness": 40}
+assert "off 50%" not in titles("light floor lamp 50 o") and "on 50%" in titles("light floor lamp 50 o")
+assert params("light floor lamp on 50") == {"on": {"on": True}, "dimming": {"brightness": 50}}
+assert first("light floor lamp coral 0")["Title"] == "0% would turn Floor lamp off"
+assert first("light floor lamp coral 101")["Title"] == "Brightness goes up to 100%"
+assert first("light lamp 2 on 50")["Title"] == "Lamp 2 can't be dimmed"
+assert titles("light floor lamp zzz 30") == ["No colour called 'zzz'"]
 
 # --- colour maths
 x, y = colors.rgb_to_xy((255, 255, 255))

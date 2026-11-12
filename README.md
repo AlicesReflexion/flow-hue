@@ -7,6 +7,7 @@ Control Philips Hue lights and scenes from [Flow Launcher](https://www.flowlaunc
 | `hue scene Precious` | Recalls the scene |
 | `hue light floor lamp green` | Turns the light on and sets its colour |
 | `hue light floor lamp warm white` | Colour temperature (candlelight, warm/soft/neutral/cool white, daylight) |
+| `hue light floor lamp 70` | Brightness as a percentage (`0` turns the light off) |
 | `hue light floor lamp off` | `on` / `off` |
 | `hue refresh` | Reloads lights and scenes from the bridge now |
 | `hue setup [ip]` | Pair again, optionally with a bridge at a given address |

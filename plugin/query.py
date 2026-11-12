@@ -3,6 +3,7 @@
 Runs on every keystroke: reads only the local cache, never the network.
 """
 import json
+import re
 
 from . import colors, store
 
@@ -94,9 +95,41 @@ def _scenes(needle, cache):
     return out or [_empty("scene", needle)]
 
 
+def _dimmable(light):
+    # Caches written before "dim" was recorded: colour and white bulbs all dim.
+    return light.get("dim", light.get("color") or light.get("ct"))
+
+
+def _brightness(light, needle):
+    """Results for a typed percentage, or None if the text isn't a number."""
+    match = re.fullmatch(r"(\d{1,3})\s*%?", needle)
+    if not match:
+        return None
+    name = light["name"]
+    if not _dimmable(light):
+        return [_result("%s can't be dimmed" % name, "It can only be turned on or off",
+                        ICON, 0, "light %s " % name)]
+    percent = int(match.group(1))
+    if percent > 100:
+        return [_result("Brightness goes up to 100%", "Type a number from 0 to 100",
+                        ICON, 0, "light %s " % name)]
+    if percent == 0:
+        body, subtitle = {"on": {"on": False}}, "Turn %s off" % name
+    else:
+        body = {"on": {"on": True}, "dimming": {"brightness": percent}}
+        subtitle = "Set %s to %d%% brightness" % (name, percent)
+    return [_result(
+        "%d%%" % percent, subtitle, "Images/light.png", 10000,
+        "light %s %d" % (name, percent),
+        {"method": "light", "parameters": [light["id"], json.dumps(body), subtitle]},
+    )]
+
+
 def _light_rows(needle, lights, penalty=0):
     return [
-        _result(light["name"], "Choose a colour", "Images/light.png",
+        _result(light["name"],
+                "Choose a colour, or type a brightness %" if _dimmable(light)
+                else "Turn on or off", "Images/light.png",
                 score - penalty, "light %s " % light["name"])
         for score, light in _ranked(needle, lights, lambda l: l["name"])
     ]
@@ -115,6 +148,9 @@ def _lights(rest, cache):
         return _light_rows(rest, lights) or [_empty("light", rest)]
 
     needle = rest[len(_norm(chosen["name"])):].strip()
+    brightness = _brightness(chosen, needle)
+    if brightness is not None:
+        return brightness
     out = []
     for score, (name, icon, body) in _ranked(needle, colors.options(chosen), lambda o: o[0]):
         if name in ("on", "off"):
@@ -131,7 +167,7 @@ def _lights(rest, cache):
         others = [l for l in lights if l is not chosen]
         out += _light_rows(rest, others, penalty=20000)
     return out or [_result(
-        "No colour called '%s'" % needle, "Try red, purple, warm white, off...",
+        "No colour called '%s'" % needle, "Try red, warm white, off, or a brightness like 70",
         ICON, 0, "light %s " % chosen["name"])]
 
 

@@ -162,6 +162,7 @@ def fetch(ip, key):
             "gamut": [[gamut[c]["x"], gamut[c]["y"]] for c in ("red", "green", "blue")]
                      if gamut else None,
             "ct": ct is not None,
+            "dim": item.get("dimming") is not None,
             "mirek": [schema.get("mirek_minimum", 153), schema.get("mirek_maximum", 500)],
         })
     scenes = [

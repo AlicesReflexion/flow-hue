@@ -18,9 +18,9 @@ from plugin import colors, query, store  # noqa: E402
 
 GAMUT_C = [[0.6915, 0.3083], [0.17, 0.7], [0.1532, 0.0475]]
 LIGHTS = [
-    {"id": "L1", "name": "Floor lamp", "color": True, "gamut": GAMUT_C, "ct": True, "mirek": [153, 500]},
-    {"id": "L2", "name": "Lamp", "color": False, "gamut": None, "ct": True, "mirek": [153, 454]},
-    {"id": "L3", "name": "Lamp 2", "color": False, "gamut": None, "ct": False, "mirek": [153, 500]},
+    {"id": "L1", "name": "Floor lamp", "color": True, "gamut": GAMUT_C, "ct": True, "mirek": [153, 500], "dim": True},
+    {"id": "L2", "name": "Lamp", "color": False, "gamut": None, "ct": True, "mirek": [153, 454], "dim": True},
+    {"id": "L3", "name": "Lamp 2", "color": False, "gamut": None, "ct": False, "mirek": [153, 500], "dim": False},
 ]
 SCENES = [{"id": "S1", "name": "Precious"}, {"id": "S2", "name": "Savanna sunset"}]
 
@@ -83,6 +83,20 @@ assert body["color_temperature"] == {"mirek": 454}
 assert titles("light lamp 2") == ["on", "off"]
 assert titles("light lamp 2 o") == ["on", "off"]
 assert titles("light floor lamp zzz") == ["No colour called 'zzz'"]
+
+# --- brightness
+r = first("light floor lamp 70")
+assert r["Title"] == "70%" and r["AutoCompleteText"] == "hue light Floor lamp 70"
+assert json.loads(r["JsonRPCAction"]["parameters"][1]) == {"on": {"on": True}, "dimming": {"brightness": 70}}
+assert titles("light floor lamp 70") == ["70%"]
+assert titles("light floor lamp 5 %") == ["5%"]
+assert json.loads(first("light floor lamp 0")["JsonRPCAction"]["parameters"][1]) == {"on": {"on": False}}
+assert first("light floor lamp 150")["Title"] == "Brightness goes up to 100%"
+assert "JsonRPCAction" in first("light floor lamp 150")  # completes, doesn't send
+assert first("light lamp 2 50")["Title"] == "Lamp 2 can't be dimmed"
+# caches written before "dim" existed still dim colour/white bulbs
+legacy = dict(LIGHTS[0]); legacy.pop("dim")
+assert query._brightness(legacy, "40")[0]["Title"] == "40%"
 
 # --- colour maths
 x, y = colors.rgb_to_xy((255, 255, 255))
